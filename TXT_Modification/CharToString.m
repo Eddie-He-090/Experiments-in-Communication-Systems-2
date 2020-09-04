@@ -1,0 +1,13 @@
+X='Log.txt';
+D='String Received:';
+Char=['aaaa';'    ';'cccc';'dddd'];
+msg=strcat(Char(1,:),Char(2,:),Char(3,:),Char(4,:));
+str=string(msg);
+fid=fopen(X, 'at+');
+E=strcat(D,{32},str);
+fprintf(fid,'\n%s',E);
+% fprintf(fid,'\n%s',X);
+fclose(fid);
+Content = importdata(X);
+disp('Content: ');
+disp(Content);
