@@ -2,38 +2,50 @@ function bpsk_rx_func(rxdata)
 global cyc;
 seq_sync = tx_gen_m_seq([1 0 0 0 0 0 1]);
 local_sync = tx_modulate(seq_sync, 'BPSK');
+local_sync=local_sync+local_sync*1i;
 rx_signal=rxdata;
 %% matched filtering
+% 匹配滤波
 fir = rcosdesign(1,128,4);
 rx_sig_filter = upfirdn(rx_signal,fir,1);
 %% normalization
+% 归一化
 c1=max([abs(real(rx_sig_filter.')),abs(imag(rx_sig_filter.'))]);
 rx_sig_norm=rx_sig_filter ./c1;
 %% sampling synchronization
+% 采样得到0和1离散数据
 [time_error,rx_sig_down]=rx_timing_recovery(rx_sig_norm.');
 % rx_sig_down=rx_sig_norm(1:4:end).';
 %% package search
+% 帧同步
 % [rx_frame,cor_abs,th_max,index_s]=rx_package_search(rx_sig_down,local_sync,703);
 [rx_frame,cor_abs,th_max,index_s]=rx_package_search(rx_sig_down,local_sync,415);
 %% coarse freq synchronization
+% 载波同步（粗同步）
 coarse_sync_seq=rx_frame(1:8);
 [deltaf1,out_signal1] = rx_freq_sync(coarse_sync_seq,4,rx_frame);
 %% first fine freq synchronization
+% 载波同步（细同步）
 fine_sync_seq_1=out_signal1(1:120);
 [deltaf2,out_signal2] = rx_freq_sync(fine_sync_seq_1,2,out_signal1);
 %% second fine freq synchronization
+% 载波同步（细同步）
 fine_sync_seq_2=out_signal2(1:120);
 [deltaf3,out_signal3]=rx_freq_sync(fine_sync_seq_2,2,out_signal2);
 deltaf=deltaf1+deltaf2+deltaf3;
 %% initial phase estimate
+% 去掉相位的影响，使幅度为“1”
+% 用同步信号（位随机序列）卷积
 [out_signal4,ang]=rx_phase_sync(out_signal3,local_sync);
 %% phase track
 rx_no_syn_seq=out_signal4(127+1:end);
 [out_signal6,phase_curve]=rx_phase_track(rx_no_syn_seq);
 
 %% delete pilot
+% 去除载频
 out_signal7=rx_delete_pilot(out_signal6);
 %% time domain equalize
+% 自适应滤波，基于最小均方误差
 out_signal8=rx_time_equalize(out_signal7);
 %% signal demod
 % [soft_bits_out,evm] = rx_bpsk_demod(out_signal8);
@@ -47,6 +59,7 @@ for i=1:length(soft_bits_out)
 end
 soft_bits_out=y;
 %% crc32 check
+% 循环冗余校验码
 ret=crc32(soft_bits_out(1:length(soft_bits_out)-32)).';
 crc_bits_32=soft_bits_out(length(soft_bits_out)-31:length(soft_bits_out));
 crc_outputs=sum(xor(ret,crc_bits_32),2);
